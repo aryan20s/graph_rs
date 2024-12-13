@@ -4,16 +4,6 @@ use macroquad::math::Vec2;
 
 use crate::node::GNode;
 
-fn find_lowest_unoccupied(map: &HashMap<u64, GNode>) -> u64 {
-    let mut lowest: u64 = 1;
-
-    while map.contains_key(&lowest) {
-        lowest += 1;
-    }
-
-    lowest
-}
-
 pub struct Graph {
     nodes: HashMap<u64, GNode>,
     edges: HashMap<u64, Vec<u64>>,
@@ -37,7 +27,9 @@ impl Graph {
     }
 
     pub fn add_node(&mut self, data: u64, pos: Vec2) {
-        if self.nodes.contains_key(&data) { return; }
+        if self.nodes.contains_key(&data) {
+            return;
+        }
 
         self.nodes.insert(
             data,
@@ -53,6 +45,9 @@ impl Graph {
     pub fn add_edge(&mut self, src: u64, dest: u64) {
         if self.nodes.contains_key(&src) && self.nodes.contains_key(&dest) {
             self.edges.get_mut(&src).unwrap().push(dest);
+            if !self.is_directed {
+                self.edges.get_mut(&dest).unwrap().push(src); // if undirected, add opposite edge too
+            }
         }
     }
 
@@ -74,15 +69,26 @@ impl Graph {
     ) -> Option<GraphTraversal> {
         let mut ret = cur_traverse.clone();
 
-        if cur_traverse.to_visit.is_empty() {
+        let mut vert = None;
+        while !ret.to_visit.is_empty() {
+            // pop nodes until we find one thats not already visited
+            let vert_check = if is_dfs {
+                ret.to_visit.pop_back()
+            } else {
+                ret.to_visit.pop_front()
+            };
+
+            if !ret.visited.contains(&vert_check.unwrap()) {
+                vert = vert_check;
+                break; // if found, break
+            }
+        }
+
+        if vert == None {
             return None;
         }
 
-        let vert = if is_dfs {
-            ret.to_visit.pop_back().unwrap()
-        } else {
-            ret.to_visit.pop_front().unwrap()
-        };
+        let vert = vert.unwrap();
 
         ret.just_visited = Some(vert);
         ret.visited.insert(vert);
@@ -106,6 +112,10 @@ impl Graph {
 
     pub fn get_nodes(&self) -> Vec<&GNode> {
         self.nodes.values().collect()
+    }
+
+    pub fn get_nodes_mut(&mut self) -> Vec<&mut GNode> {
+        self.nodes.values_mut().collect()
     }
 
     pub fn get_node_mut(&mut self, id: u64) -> Option<&mut GNode> {

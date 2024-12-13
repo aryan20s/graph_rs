@@ -1,31 +1,22 @@
 use macroquad::prelude::*;
 
-use crate::graph::{Graph, GraphTraversal};
+use crate::graph::{self, Graph, GraphTraversal};
+use crate::node::{NODE_FONT_SIZE, NODE_RADIUS, NODE_RADIUS_SQR};
+use crate::update::AppState;
 
-const NODE_RADIUS: f32 = 30.0;
-const NODE_FONT_SIZE: u16 = 36;
-
-pub fn render(graph: &mut Graph, cur_traversal: &Option<GraphTraversal>) {
+pub fn render(cur_state: &AppState) {
     clear_background(BLACK);
 
-    let mut node_under_mouse: Option<u64> = None;
-    let mut node_to_move: Option<u64> = None;
-    let mut node_to_move_pos: Vec2 = Vec2::new(0.0, 0.0);
-    for node in graph.get_nodes() {
-        let mouse_pos = mouse_position();
-        let mouse_pos = Vec2::new(mouse_pos.0, mouse_pos.1);
+    let graph = &cur_state.graph;
+    let cur_traversal = &cur_state.cur_traversal;
 
-        if mouse_pos.distance_squared(node.pos) <= (NODE_RADIUS * NODE_RADIUS) {
-            if is_mouse_button_down(MouseButton::Left) {
-                node_to_move = Some(node.data);
-                node_to_move_pos = mouse_pos.clone();
-            }
+    let mouse_pos = mouse_position();
+    let mouse_pos = Vec2::new(mouse_pos.0, mouse_pos.1);
+    let mut node_under_mouse: Option<u64> = None;
+    for node in graph.get_nodes() {
+        if mouse_pos.distance_squared(node.pos) <= NODE_RADIUS_SQR {
             node_under_mouse = Some(node.data);
         }
-    }
-
-    if let Some(node_to_move) = node_to_move {
-        graph.get_node_mut(node_to_move).unwrap().pos = node_to_move_pos;
     }
 
     for (src, dests_vec) in graph.get_edges().iter() {
@@ -43,16 +34,28 @@ pub fn render(graph: &mut Graph, cur_traversal: &Option<GraphTraversal>) {
         }
     }
 
+    if let Some(edge_src) = cur_state.edge_from {
+        let src_node = graph.get_node(edge_src).unwrap();
+        draw_line(
+            src_node.pos.x,
+            src_node.pos.y,
+            mouse_pos.x,
+            mouse_pos.y,
+            4.0,
+            LIME,
+        );
+    }
+
     for node in graph.get_nodes() {
         let mut node_color = WHITE;
 
         if let Some(cur_traversal) = cur_traversal {
-            if cur_traversal.visited.contains(&node.data) {
-                node_color = LIME;
-            }
-
             if cur_traversal.to_visit.contains(&node.data) {
                 node_color = SKYBLUE;
+            }
+
+            if cur_traversal.visited.contains(&node.data) {
+                node_color = LIME;
             }
 
             if let Some(just_visited) = cur_traversal.just_visited {
